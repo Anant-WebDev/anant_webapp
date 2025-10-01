@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse} from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import sendEmail from "@/helpers/mailer";
 import { isValid } from "@/helpers/rollnumber_validity";
 import bcryptjs from "bcryptjs";
@@ -20,19 +20,19 @@ export async function POST(req: NextRequest) {
     if (!roll_number) {
       return NextResponse.json(
         { message: "Roll number missing!" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     if (typeof roll_number != "string") {
       return NextResponse.json(
         { message: "Invalid data type!" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     if (!isValid(roll_number)) {
       return NextResponse.json(
         { message: "Roll number invalid!" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     if (user) {
       return NextResponse.json(
         { message: "User already registered!" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     const max = 1000000;
     const OTP: string = String(Math.floor(Math.random() * max)).padStart(
       6,
-      "0"
+      "0",
     );
 
     // hashing OTP
@@ -85,12 +85,18 @@ export async function POST(req: NextRequest) {
       console.log(OTP);
     } catch (err) {
       console.log("error occured\n", err);
-      return NextResponse.json({ message: "Internal Server Error: Sending email-failed"}, { status: 500 });
+      return NextResponse.json(
+        { message: "Internal Server Error: Sending email-failed" },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({ message: "Email sent successfully" });
   } catch (err) {
     console.log(err);
-    return NextResponse.json({ message: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { message: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

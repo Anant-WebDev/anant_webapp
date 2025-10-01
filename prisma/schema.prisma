@@ -13,31 +13,32 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User{
+model User {
   // basic user details
-  id String @unique @id @default(uuid())
-  roll_number Int @unique
-  name String
-  password String
-  branch branch_options?
-  batch String?
-  position position_options?
-  club_dept club_dept_options[]
-  joined DateTime @default(now())
-  imageURL String?
-  linkedIn String?
-  github String?
-  instagram String?
-  
+  id          String              @id @unique @default(uuid())
+  roll_number Int?                @unique
+  email       String?             @unique
+  name        String
+  password    String
+  branch      branch_options?
+  batch       String?
+  position    position_options?
+  club_dept   club_dept_options[]
+  joined      DateTime            @default(now())
+  imageURL    String?
+  linkedIn    String?
+  github      String?
+  instagram   String?
+
   // notice
-  notices Notice[]    @relation(name:"notice-posted")
-  
+  notices Notice[] @relation(name: "notice-posted")
+
   // meetings
-  meetings_conducted Meeting[]    @relation(name:"meeting-host")
-  meetings_attended Meeting[] @relation(name:"meeting-attended")
+  meetings_conducted Meeting[] @relation(name: "meeting-host")
+  meetings_attended  Meeting[] @relation(name: "meeting-attended")
 
   // team details
-  team Team[] @relation(name: "team-leaded")
+  team        Team[] @relation(name: "team-leaded")
   team_member Team[] @relation(name: "team-member")
 
   // Orders placed by the user
@@ -50,129 +51,129 @@ model User{
   pending_requests Pending_requests[]
 
   //events
-  events_created Events[]
+  events_created      Events[]
   events_participated Events[] @relation(name: "event_participant_member")
-  first_prize Events[] @relation(name: "first_prize")
-  second_prize Events[] @relation(name: "second_prize")
-  third_prize Events[] @relation(name: "third_prize")
+  first_prize         Events[] @relation(name: "first_prize")
+  second_prize        Events[] @relation(name: "second_prize")
+  third_prize         Events[] @relation(name: "third_prize")
 
   //compitition
-  compititions_created Competitions[]
+  compititions_created      Competitions[]
   compititions_participated Competitions[] @relation(name: "participant_member")
-  first_prize_comp Competitions[] @relation(name: "first_prize_comp")
-  second_prize_comp Competitions[] @relation(name: "second_prize_comp")
-  third_prize_comp Competitions[] @relation(name: "third_prize_comp")
+  first_prize_comp          Competitions[] @relation(name: "first_prize_comp")
+  second_prize_comp         Competitions[] @relation(name: "second_prize_comp")
+  third_prize_comp          Competitions[] @relation(name: "third_prize_comp")
 
   Internship Internship[] @relation(name: "internship")
 
   // blogs written
-  blogs Blog[]     @relation("blogs-written")
+  blogs Blog[] @relation("blogs-written")
 
   // newsletters written
   newsletters NewsLetter[] @relation("newsletter-written")
 }
 
-model Notice{
-  notice_id String @id @default(uuid())
-  headline String
-  body String
-  postedOn DateTime  @default(now())
-  category notice_cat
-  userID String
-  link String?
-  is_active Boolean @default(true)
-  postedBy User @relation(name: "notice-posted",fields: [userID], references: [id])
+model Notice {
+  notice_id String     @id @default(uuid())
+  headline  String
+  body      String
+  postedOn  DateTime   @default(now())
+  category  notice_cat
+  userID    String
+  link      String?
+  is_active Boolean    @default(true)
+  postedBy  User       @relation(name: "notice-posted", fields: [userID], references: [id])
 }
 
-model Meeting{
-  meeting_id String @id @default(uuid())
-  venue String
-  starts DateTime
-  duration Int?
+model Meeting {
+  meeting_id          String   @id @default(uuid())
+  venue               String
+  starts              DateTime
+  duration            Int?
   topic_of_discussion String?
-  hostID String
-  conductor User @relation(name: "meeting-host", fields: [hostID], references: [id])
-  attendees User[] @relation(name:"meeting-attended")
+  hostID              String
+  conductor           User     @relation(name: "meeting-host", fields: [hostID], references: [id])
+  attendees           User[]   @relation(name: "meeting-attended")
 }
 
-model Team{
-  team_id String @id @default(uuid())
-  team_name String @unique
-  team_leader_id String
-  team_leader User @relation(name: "team-leaded", fields: [team_leader_id], references: [id])
-  team_members User[] @relation(name: "team-member")
-  participated Competitions[] @relation(name: "participant_team")
+model Team {
+  team_id          String             @id @default(uuid())
+  team_name        String             @unique
+  team_leader_id   String
+  team_leader      User               @relation(name: "team-leaded", fields: [team_leader_id], references: [id])
+  team_members     User[]             @relation(name: "team-member")
+  participated     Competitions[]     @relation(name: "participant_team")
   // Pending requests
   pending_requests Pending_requests[]
 }
 
-model Pending_requests{
-  request_id String @id @default(uuid())
-  user_id String
-  team_id String
+model Pending_requests {
+  request_id   String   @id @default(uuid())
+  user_id      String
+  team_id      String
   request_time DateTime @default(now())
-  user User @relation(fields: [user_id], references: [id])
-  team Team @relation(fields: [team_id], references: [team_id])
+  user         User     @relation(fields: [user_id], references: [id])
+  team         Team     @relation(fields: [team_id], references: [team_id])
 }
 
-model Competitions{
-  competition_id String @id @default(uuid())
-  competitionName String @unique
-  conductedBy String
-  conductedOn DateTime
+model Competitions {
+  competition_id        String   @id @default(uuid())
+  competitionName       String   @unique
+  conductedBy           String
+  conductedOn           DateTime
   registration_deadline DateTime
-  venue String
-  prize String?
-  description String
-  imageURL String?
-  min_team_size Int
-  max_team_size Int
-  creator_id String
-  first_prize_id String?
-  second_prize_id String?
-  third_prize_id String?
+  venue                 String
+  prize                 String?
+  description           String
+  imageURL              String?
+  min_team_size         Int
+  max_team_size         Int
+  creator_id            String
+  first_prize_id        String?
+  second_prize_id       String?
+  third_prize_id        String?
 
   // for outside college students
-  first_prize_name String? 
+  first_prize_name  String?
   second_prize_name String?
-  third_prize_name String?
+  third_prize_name  String?
 
-  createdBy User @relation(fields: [creator_id], references: [id])
+  createdBy          User   @relation(fields: [creator_id], references: [id])
   teams_participated Team[] @relation(name: "participant_team")
   users_participated User[] @relation(name: "participant_member")
 
-  first_prize User[] @relation(name: "first_prize_comp")
+  first_prize  User[] @relation(name: "first_prize_comp")
   second_prize User[] @relation(name: "second_prize_comp")
-  third_prize User[] @relation(name: "third_prize_comp")
+  third_prize  User[] @relation(name: "third_prize_comp")
 }
 
-model Events{
-  event_id String @id @default(uuid())
-  eventName String @unique
-  conductedBy String
-  conductedOn DateTime
+model Events {
+  event_id              String   @id @default(uuid())
+  eventName             String   @unique
+  conductedBy           String
+  conductedOn           DateTime
   registration_deadline DateTime
-  venue String
-  description String
-  prize String?
-  imageURL String?
-  creator_id String
+  venue                 String
+  description           String
+  prize                 String?
+  imageURL              String?
+  creator_id            String
 
-  first_prize_id String?
+  first_prize_id  String?
   second_prize_id String?
-  third_prize_id String?
+  third_prize_id  String?
 
   // for outside college students
-  first_prize_name String? 
+  first_prize_name  String?
   second_prize_name String?
-  third_prize_name String?
+  third_prize_name  String?
 
   users_participated User[] @relation(name: "event_participant_member")
-  
-  createdBy User @relation(fields: [creator_id], references: [id])
-  first_prize User? @relation(name: "first_prize", fields: [first_prize_id], references: [id])
+
+  createdBy    User  @relation(fields: [creator_id], references: [id])
+  first_prize  User? @relation(name: "first_prize", fields: [first_prize_id], references: [id])
   second_prize User? @relation(name: "second_prize", fields: [second_prize_id], references: [id])
-  third_prize User? @relation(name: "third_prize", fields: [third_prize_id], references: [id])
+  third_prize  User? @relation(name: "third_prize", fields: [third_prize_id], references: [id])
 
   // alternate registration strategy
   external_registration_link String?
@@ -182,20 +183,20 @@ model Events{
 model LatestNews {
   id          Int      @id @default(autoincrement())
   title       String
-  description String?   // Optional
-  link        String?   // Optional
-  is_active   Boolean   @default(true)
-  created_at  DateTime  @default(now())
+  description String? // Optional
+  link        String? // Optional
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
 }
 
 model Internship {
-  id          Int      @id @default(autoincrement())
+  id          Int                  @id @default(autoincrement())
   user_id     String
   title       String
-  description String?   // Optional
-  link        String?   // Optional
-  is_active   Boolean   @default(true) // for showing/hiding the internship
-  email       String?   // Optional for now
+  description String? // Optional
+  link        String? // Optional
+  is_active   Boolean              @default(true) // for showing/hiding the internship
+  email       String? // Optional for now
   department  InternshipDepartment
   class       InternshipClass
 
@@ -203,14 +204,14 @@ model Internship {
   company_name String
   duration     String
 
-  created_at  DateTime  @default(now())
-  user        User      @relation(fields: [user_id], references: [id] , name: "internship")
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id], name: "internship")
 }
 
 model DepartmentAchievements {
   id          Int      @id @default(autoincrement())
-  department   String
-  achievement  String
+  department  String
+  achievement String
   description String?
   imageURL    String?
   created_at  DateTime @default(now())
@@ -219,7 +220,6 @@ model DepartmentAchievements {
 enum InternshipDepartment {
   Mathematics
 }
-
 
 enum InternshipClass {
   MSc
@@ -233,14 +233,14 @@ enum branch_options {
   CSE
   IT
   ECE
-  EE 
+  EE
   ME
   CE
   IIOT
-  PIE 
+  PIE
   VLSI
-  RA 
-  SET 
+  RA
+  SET
 }
 
 enum position_options {
@@ -271,57 +271,55 @@ enum notice_cat {
 // Merchandise table
 
 model Merchandise {
-  item_id      Int      @id @default(autoincrement())
-  name         String
-  description  String?
-  price        Float
+  item_id        Int           @id @default(autoincrement())
+  name           String
+  description    String?
+  price          Float
   stock_quantity Int
-  category     item_category
-  image_url    String?
-  created_at   DateTime @default(now())
-  updated_at   DateTime @default(now()) @updatedAt
+  category       item_category
+  image_url      String?
+  created_at     DateTime      @default(now())
+  updated_at     DateTime      @default(now()) @updatedAt
 
-  orderItems   OrderItem[]
+  orderItems OrderItem[]
 }
 
 model Order {
-  order_id      Int       @id @default(autoincrement())
-  user_id       String     
-  total_price   Float
-  status        order_status  @default(PENDING)
-  payment_method String?  // UPI, BANK_TRANSFER, etc.
+  order_id       Int          @id @default(autoincrement())
+  user_id        String
+  total_price    Float
+  status         order_status @default(PENDING)
+  payment_method String? // UPI, BANK_TRANSFER, etc.
   transaction_id String?
-  created_at    DateTime  @default(now())
+  created_at     DateTime     @default(now())
 
-  user          User     @relation(fields: [user_id], references: [id], name: "orders-placed")
-  orderItems    OrderItem[]
+  user       User        @relation(fields: [user_id], references: [id], name: "orders-placed")
+  orderItems OrderItem[]
 
-  adminVerification AdminVerification? 
+  adminVerification AdminVerification?
 }
-
 
 model OrderItem {
-  order_item_id Int    @id @default(autoincrement())
-  order_id      Int
-  item_id       Int
-  quantity      Int
+  order_item_id  Int   @id @default(autoincrement())
+  order_id       Int
+  item_id        Int
+  quantity       Int
   price_per_item Float
 
-  order         Order     @relation(fields: [order_id], references: [order_id])
-  merchandise   Merchandise @relation(fields: [item_id], references: [item_id])
+  order       Order       @relation(fields: [order_id], references: [order_id])
+  merchandise Merchandise @relation(fields: [item_id], references: [item_id])
 }
-
 
 model AdminVerification {
   verification_id Int      @id @default(autoincrement())
   order_id        Int      @unique
   admin_id        String
-  status          String  // APPROVED, REJECTED
+  status          String // APPROVED, REJECTED
   remarks         String?
   verified_at     DateTime @default(now())
 
-  order           Order    @relation(fields: [order_id], references: [order_id])
-  user            User    @relation(fields: [admin_id], references: [id] , name: "verified_by")
+  order Order @relation(fields: [order_id], references: [order_id])
+  user  User  @relation(fields: [admin_id], references: [id], name: "verified_by")
 }
 
 enum category {
@@ -329,6 +327,7 @@ enum category {
   Technical
   Sponsorship
 }
+
 enum order_status {
   PENDING
   APPROVED
@@ -343,49 +342,47 @@ enum item_category {
   Books
 }
 
-
-
 // gallery and images
 model Album {
-  id      String  @id @default(cuid())
-  name    String  @unique
-  images  AlbumImages[]
-  createdAt DateTime @default(now())
+  id        String        @id @default(cuid())
+  name      String        @unique
+  images    AlbumImages[]
+  createdAt DateTime      @default(now())
 }
 
 model AlbumImages {
-  id      String  @id @default(cuid())
+  id      String @id @default(cuid())
   url     String
   albumId String
-  album   Album   @relation(fields: [albumId], references: [id])
+  album   Album  @relation(fields: [albumId], references: [id])
 }
 
 // a simple gallery with gdrive link
 model GDriveGallery {
-  id String @id @default(uuid())
-  title String
-  coverImage String?
+  id          String   @id @default(uuid())
+  title       String
+  coverImage  String?
   description String?
-  link String
-  createdAt DateTime @default(now())
+  link        String
+  createdAt   DateTime @default(now())
 }
 
 // blog section
 model Blog {
-  id String @id @default(uuid())
-  title String
-  category blog_cat
+  id            String   @id @default(uuid())
+  title         String
+  category      blog_cat
   cover_picture String?
-  description String?
-  body String  
-  isVerified Boolean
-  userID String
-  writtenBy User @relation(name: "blogs-written", fields: [userID], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt 
+  description   String?
+  body          String
+  isVerified    Boolean
+  userID        String
+  writtenBy     User     @relation(name: "blogs-written", fields: [userID], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
-enum blog_cat{
+enum blog_cat {
   Mathematics
   Trading
   Ancient_Mathematics
@@ -397,26 +394,26 @@ enum blog_cat{
 }
 
 // stores pdf
-model NewsLetter{
-  id String @id @default(uuid())
-  title String
-  fileUrl String
+model NewsLetter {
+  id         String   @id @default(uuid())
+  title      String
+  fileUrl    String
   publisedAt DateTime @default(now())
-  userID String
-  writtenBy User @relation(name: "newsletter-written", fields: [userID], references: [id])
-  category String?
-  volume String?
+  userID     String
+  writtenBy  User     @relation(name: "newsletter-written", fields: [userID], references: [id])
+  category   String?
+  volume     String?
 }
 
-model Certificate{
-  id String @id @default(uuid())
-  issuedFor String
-  issuedTo String
-  fileUrl String
-  issuedDate DateTime? @default(now())
-  roll_number String?
-  branch String?
-  ranking Int?
+model Certificate {
+  id           String    @id @default(uuid())
+  issuedFor    String
+  issuedTo     String
+  fileUrl      String
+  issuedDate   DateTime? @default(now())
+  roll_number  String?
+  branch       String?
+  ranking      Int?
   SerialNumber String?
-  cop Boolean? @default(false)
+  cop          Boolean?  @default(false)
 }

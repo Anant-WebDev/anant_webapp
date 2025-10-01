@@ -2,36 +2,51 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/PrismaClient/db";
 import bcryptjs from "bcryptjs";
 import redis from "@/helpers/redis";
-import z from "zod";
+import { z } from "zod";
+import sendEmail from "@/helpers/mailer";
+import { mailOptions } from "@/helpers/mailer";
+import {
+  branch_options,
+  club_dept_options,
+  position_options,
+} from "@prisma/client";
 import fs from "fs";
 import path from "path";
-import { branch_options, club_dept_options, position_options, Prisma } from "@prisma/client";
 
-const RegistrationSchema = z.object({
-  roll_number: z
-    .string()
-    .min(1, "Roll number is required")
-    .regex(/^\d+$/, "Roll number must be a number"),
-  username: z.string().min(1, "Username is required"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-  confirmpassword: z.string().min(8, "Confirm password is required"),
-  otp: z.string().min(6, "OTP is required"),
+// --- Zod Schemas for Each Action ---
+const sendCodeSchema = z.object({
+  action: z.literal("send-code"),
+  identifier: z.string().min(1, "Identifier is required"),
 });
 
-async function parseCSV(rno: Number){
+const createUserSchema = z
+  .object({
+    action: z.literal("create-user"),
+    identifier: z.string().min(1, "Identifier is required"),
+    name: z.string().min(1, "Username is required"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    confirmpassword: z.string(),
+    otp: z.string().min(6, "OTP must be 6 characters"),
+  })
+  .refine((data) => data.password === data.confirmpassword, {
+    message: "Passwords do not match",
+    path: ["confirmpassword"],
+  });
+
+// --- Your existing CSV parser ---
+async function parseCSV(rno: number) {
+  // ... (your existing parseCSV function is fine)
   const filePath = path.join(process.cwd(), "src/data/admins.csv");
   const csvData = fs.readFileSync(filePath, "utf8");
-  
-  // windows line endings
-  const rows = csvData.replace(/\r/g, "").split("\n").map((row) => row.split(","));
-  // const rows = csvData.split("\n").map((row) => row.split(",")); 
+  const rows = csvData
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((row) => row.split(","));
   const headers = rows[0];
-
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
     if (row[0] === rno.toString()) {
-      const user = Object.fromEntries(headers.map((h, idx) => [h, row[idx]]));
-      return user;
+      return Object.fromEntries(headers.map((h, idx) => [h, row[idx]]));
     }
   }
   return null;
@@ -40,157 +55,143 @@ async function parseCSV(rno: Number){
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    const action = body.action;
 
-    const result = RegistrationSchema.safeParse(body);
+    // ==========================================================
+    //  STEP 1: LOGIC FOR SENDING THE VERIFICATION CODE
+    // ==========================================================
+    if (action === "send-code") {
+      const result = sendCodeSchema.safeParse(body);
+      if (!result.success) {
+        return NextResponse.json(
+          { error: result.error.errors[0].message },
+          { status: 400 },
+        );
+      }
 
-    // Handle schema validation errors
-    if (!result.success) {
-      const errorMessages = result.error.errors.map((err) => err.message);
-      return NextResponse.json(
-        {
-          status: 400,
-          message: errorMessages.join(", "),
-        },
-        { status: 400 }
+      const { identifier } = result.data;
+      const isEmail = identifier.includes("@");
+      let user, emailToSendTo: string;
+
+      // Check if user already exists
+      if (isEmail) {
+        user = await prisma.user.findUnique({ where: { email: identifier } });
+        emailToSendTo = identifier;
+      } else {
+        if (!/^\d+$/.test(identifier))
+          return NextResponse.json(
+            { error: "Invalid Roll Number" },
+            { status: 400 },
+          );
+        user = await prisma.user.findUnique({
+          where: { roll_number: Number(identifier) },
+        });
+        emailToSendTo = identifier + "@nitkkr.ac.in";
+      }
+
+      if (user) {
+        return NextResponse.json(
+          { error: "User already registered" },
+          { status: 409 },
+        );
+      }
+
+      // Generate, hash, and store OTP in Redis
+      const otp = String(Math.floor(100000 + Math.random() * 900000));
+      const salt = await bcryptjs.genSalt(10);
+      const hashedOTP = await bcryptjs.hash(otp, salt);
+      await redis.set(
+        identifier,
+        JSON.stringify({ hashedOTP, time: Date.now() }),
       );
+      await redis.expire(identifier, 600); // 10-minute expiry
+
+      // Send the email
+      await sendEmail({
+        from: process.env.MAIL_ID!,
+        to: emailToSendTo,
+        subject: "Anant Registration: Your Verification Code",
+        text: `Your verification code is ${otp}. It will expire in 10 minutes.`,
+      });
+
+      return NextResponse.json({ message: "Verification code sent." });
     }
 
-    let { roll_number, username, password, confirmpassword, otp } = body;
+    // ==========================================================
+    //  STEP 2: LOGIC FOR CREATING THE USER
+    // ==========================================================
+    else if (action === "create-user") {
+      const result = createUserSchema.safeParse(body);
+      if (!result.success) {
+        return NextResponse.json(
+          { error: result.error.errors[0].message },
+          { status: 400 },
+        );
+      }
 
-    // trimming whitespaces
-    password = password.trim();
-    confirmpassword = confirmpassword.trim();
-    otp = otp.trim();
-    username = username.trim();
-    roll_number = roll_number.trim();
+      const { identifier, name, password, otp } = result.data;
+      const isEmail = identifier.includes("@");
 
-    // check for registered user
-    const isExisting = await prisma.user.findUnique({
-      where: { roll_number: Number(roll_number) },
-    });
-    if (isExisting) {
-      return NextResponse.json(
-        {
-          status: 400,
-          message: "User already exists",
-        },
-        { status: 400 }
-      );
-    }
+      // Verify the OTP from Redis
+      const redisValue = await redis.get(identifier);
+      if (!redisValue) {
+        return NextResponse.json(
+          { error: "Verification expired or not initiated." },
+          { status: 400 },
+        );
+      }
 
-    if (password !== confirmpassword) {
-      return NextResponse.json(
-        {
-          status: 400,
-          message: "Passwords do not match",
-        },
-        { status: 400 }
-      );
-    }
-    if (password.length < 8) {
-      return NextResponse.json(
-        {
-          status: 400,
-          message: "Password must be at least 8 characters",
-        },
-        { status: 400 }
-      );
-    }
-    const value = await redis.get(roll_number);
-    if (!value) {
-      return NextResponse.json(
-        {
-          status: 400,
-          message: "Verification not done!",
-        },
-        { status: 400 }
-      );
-    }
+      const { hashedOTP, time } = JSON.parse(redisValue);
+      if (Date.now() - time > 600000) {
+        return NextResponse.json(
+          { error: "OTP has expired." },
+          { status: 400 },
+        );
+      }
 
-    const { hashedOTP, time } = await JSON.parse(value);
-    const time_diff = Date.now() - time;
+      const isOtpCorrect = await bcryptjs.compare(otp, hashedOTP);
+      if (!isOtpCorrect) {
+        return NextResponse.json({ error: "Invalid OTP." }, { status: 400 });
+      }
 
-    // 10 min time limit
-    if (time_diff > 600000) {
-      return NextResponse.json(
-        {
-          status: 400,
-          message: "Verification expired!",
-        },
-        { status: 400 }
-      );
-    }
+      await redis.del(identifier); // OTP is used, so delete it
 
-    const isOTPCorrect = await bcryptjs.compare(otp, hashedOTP);
-    if (!isOTPCorrect) {
-      return NextResponse.json(
-        {
-          status: 400,
-          message: "Invalid OTP!",
-        },
-        { status: 400 }
-      );
-    }
+      // Hash password and create user data
+      const salt = await bcryptjs.genSalt(10);
+      const hashedPassword = await bcryptjs.hash(password, salt);
 
-    // delete OTP from redis
-    await redis.del(roll_number);
-
-    // hash password
-    const salt = await bcryptjs.genSalt(10);
-    const hashedPassword = await bcryptjs.hash(password, salt);
-
-    // get user_details
-    const user_details = await parseCSV(Number(roll_number));
-
-    let user;
-    // not an admin
-    if (!user_details){
-      user = {
-        roll_number: Number(roll_number),
-        name: username,
+      let userData: any = {
+        name: name,
         password: hashedPassword,
-        club_dept: []
+        email: isEmail ? identifier : null,
+        roll_number: isEmail ? null : Number(identifier),
       };
-    }
-    else{
-      console.log("User details: ", user_details);
-      user = {
-        roll_number: Number(roll_number),
-        name: username,
-        password: hashedPassword,
-        batch: user_details["batch"],
-        branch: branch_options[user_details["branch"] as keyof typeof branch_options],
-        position: position_options[user_details["position"] as keyof typeof position_options],
-        club_dept: [club_dept_options[user_details["club_dept"] as keyof typeof club_dept_options]],
-      };
-    }
-    
-    const newUser = await prisma.user.create({ data: user });
-    if (!newUser) {
-      console.log("Error in creating user");
+
+      if (!isEmail) {
+        const user_details = await parseCSV(Number(identifier));
+        if (user_details) {
+          userData.batch = user_details["batch"];
+          userData.branch = user_details["branch"] as branch_options;
+          userData.position = user_details["position"] as position_options;
+          userData.club_dept = [user_details["club_dept"] as club_dept_options];
+        }
+      }
+
+      await prisma.user.create({ data: userData });
+
       return NextResponse.json(
-        {
-          status: 500,
-          message: "Internal Server Error: Failed saving user details",
-        },
-        { status: 500 }
+        { message: "Registration successful!" },
+        { status: 201 },
       );
     }
-    return NextResponse.json(
-      {
-        status: 200,
-        message: "Registration Successful!",
-      },
-      { status: 200 }
-    );
+
+    // If no valid action is provided
+    return NextResponse.json({ error: "Invalid action." }, { status: 400 });
   } catch (error) {
     console.log("Error in registration: ", error);
     return NextResponse.json(
-      {
-        status: 500,
-        message: "Internal Server Error",
-      },
-      { status: 500 }
+      { error: "Internal Server Error" },
+      { status: 500 },
     );
   }
 }
