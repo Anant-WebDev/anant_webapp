@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import z from "zod";
 import { getSession } from "@/lib/actions/Sessions";
 import isAdmin from "@/lib/actions/Admin";
-import { link } from "fs";
 
 const categoryEnum = z.enum(["General", "Technical", "Sponsorship"]);
 
