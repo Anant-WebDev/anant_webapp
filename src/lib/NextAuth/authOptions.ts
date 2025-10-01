@@ -2,7 +2,7 @@ import prisma from "@/lib/PrismaClient/db";
 import { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcryptjs from "bcryptjs";
-import { rollNumberSchema } from "@/types/common";
+// import { rollNumberSchema } from "@/types/common";
 
 // configurations for the NextAuth
 const authOptions: AuthOptions = {
@@ -10,43 +10,50 @@ const authOptions: AuthOptions = {
     CredentialsProvider({
       name: "credentials",
       credentials: {
-        rollNo: { label: "Roll No", type: "text", placeholder: "123108031" },
+        // We use a generic 'identifier' field for both roll number and email
+        identifier: {
+          label: "Roll No / Email",
+          type: "text",
+          placeholder: "123108031 or name@example.com",
+        },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        let rollNo = credentials?.rollNo?.trim();
+        const identifier = credentials?.identifier?.trim();
         const password = credentials?.password?.trim();
 
-        const result = rollNumberSchema.safeParse(rollNo);
-
-        if (!result.success) {
-          throw new Error(result.error.errors[0].message);
+        if (!identifier || !password) {
+          throw new Error("Identifier and Password are required");
         }
 
-        rollNo = result.data;
-
-        if (!rollNo || !password) {
-          throw new Error("RollNo and Password is required");
-        }
-
-        let gotUser;
+        let user;
         try {
-          gotUser = await prisma.user.findUnique({
-            where: { roll_number: Number(rollNo) },
-          });
+          // Check if the identifier looks like an email address
+          if (identifier.includes("@")) {
+            // Find user by email
+            user = await prisma.user.findUnique({
+              where: { email: identifier },
+            });
+          } else {
+            // Otherwise, assume it's a roll number
+            const rollNumber = parseInt(identifier, 10);
+            if (isNaN(rollNumber)) {
+              throw new Error("Invalid Roll Number format");
+            }
+            user = await prisma.user.findUnique({
+              where: { roll_number: rollNumber },
+            });
+          }
         } catch (error) {
-          console.log("error while sigin : ", error);
+          console.log("Error while signing in: ", error);
           throw new Error("Something went wrong");
         }
 
-        if (!gotUser) {
-          throw new Error("User not found please register");
+        if (!user) {
+          throw new Error("User not found, please register");
         }
 
-        const validPassword = await bcryptjs.compare(
-          password,
-          gotUser.password
-        );
+        const validPassword = await bcryptjs.compare(password, user.password);
 
         if (!validPassword) {
           throw new Error("Invalid Password");
@@ -54,15 +61,16 @@ const authOptions: AuthOptions = {
 
         // Return a user object in the expected format
         return {
-          id: gotUser.id,
-          rollNo: String(gotUser.roll_number),
-          name: gotUser.name || null,
-          image: gotUser.imageURL || null,
-          position: gotUser.position || null,
-          branch: gotUser.branch || null,
-          clubDept: gotUser.club_dept || null,
-          joinedAt: gotUser.joined || null,
-          batch: gotUser.batch || null,
+          id: user.id,
+          rollNo: user.roll_number ? String(user.roll_number) : "", // Handle null roll_number
+          email: user.email || null, // Add email to the user object
+          name: user.name || null,
+          image: user.imageURL || null,
+          position: user.position || null,
+          branch: user.branch || null,
+          clubDept: user.club_dept || null,
+          joinedAt: user.joined || null,
+          batch: user.batch || null,
         };
       },
     }),
@@ -76,7 +84,7 @@ const authOptions: AuthOptions = {
     //   return url;
     // },
     async session({ session, token }) {
-      if (token) {
+      if (token && token.user) {
         session.user = {
           id: token.user.id,
           token: token,
@@ -87,7 +95,6 @@ const authOptions: AuthOptions = {
     },
     async jwt({ token, user, trigger, session }) {
       if (trigger === "update" && session) {
-        // Merge the updates with existing token data
         token.user = {
           ...token.user,
           ...session.user,
@@ -102,4 +109,5 @@ const authOptions: AuthOptions = {
     },
   },
 };
+
 export default authOptions;

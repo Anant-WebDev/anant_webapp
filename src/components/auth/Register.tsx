@@ -2,72 +2,107 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useRouter } from 'next/navigation';
-import { UserCircle2, BookOpen, KeyRound, Lock, ShieldCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  UserCircle2,
+  BookOpen,
+  KeyRound,
+  Lock,
+  ShieldCheck,
+} from "lucide-react";
 import GradientButton from "@/components/ui/GradientButton";
 import { InputField } from "./InputField";
+import toast from "react-hot-toast";
 
 export default function RegisterForm() {
-  const [username, setUsername] = useState("");
-  const [rollNumber, setRollNumber] = useState("");
+  const [name, setName] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
   const router = useRouter();
 
   const handleVerify = async (e: React.MouseEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError("");
+    if (!identifier) {
+      toast.error("Please enter a roll number or email to verify.");
+      return;
+    }
+
+    setIsVerifying(true);
+    const toastId = toast.loading("Sending verification code...");
 
     try {
-      const res = await fetch("/api/verify", {
+      // --- CHANGE #1: This now calls the main register route ---
+      const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roll_number: rollNumber }),
+        // It sends an 'action' to tell the backend what to do
+        body: JSON.stringify({
+          action: "send-code",
+          identifier: identifier,
+        }),
       });
 
-      if (!res.ok) throw new Error("Failed to send OTP");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send code");
+
+      toast.success("Verification code sent!", { id: toastId });
       setOtpSent(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send OTP");
+      toast.error(err instanceof Error ? err.message : "An error occurred", {
+        id: toastId,
+      });
     } finally {
-      setIsLoading(false);
+      setIsVerifying(false);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      toast.error("Passwords do not match");
+      return;
+    }
+    if (!otpSent) {
+      toast.error("Please verify your email or roll number first.");
       return;
     }
 
     setIsLoading(true);
-    setError("");
+    const toastId = toast.loading("Creating your account...");
 
     try {
+      // --- CHANGE #2: This also calls the main register route ---
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        // It sends a different 'action' and the full form data
         body: JSON.stringify({
-          username,
-          roll_number: rollNumber,
-          password,
-          otp,
-          confirmpassword : confirmPassword,
+          action: "create-user",
+          name: name,
+          identifier: identifier,
+          password: password,
+          confirmpassword: confirmPassword,
+          otp: otp,
         }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Registration failed");
-      router.push('/login');
+      if (!res.ok) throw new Error(data.error || "Registration failed");
+
+      toast.success("Account created successfully! Please log in.", {
+        id: toastId,
+      });
+      router.push("/login");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
+      toast.error(err instanceof Error ? err.message : "Registration failed", {
+        id: toastId,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -85,19 +120,22 @@ export default function RegisterForm() {
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="space-y-4">
           <InputField
-            id="username"
-            label="Username"
+            id="name"
+            label="Full Name"
             type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
             icon={<UserCircle2 className="h-5 w-5 text-gray-500" />}
-            placeholder="Enter your username"
-            disabled={isLoading}
+            placeholder="Enter your full name"
+            disabled={isLoading || isVerifying}
           />
 
           <div>
-            <label htmlFor="rollNumber" className="block text-sm font-medium text-gray-300 mb-1.5">
-              Roll Number
+            <label
+              htmlFor="identifier"
+              className="block text-sm font-medium text-gray-300 mb-1.5"
+            >
+              Roll Number / Email
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -105,21 +143,23 @@ export default function RegisterForm() {
               </div>
               <input
                 type="text"
-                id="rollNumber"
-                value={rollNumber}
-                onChange={(e) => setRollNumber(e.target.value)}
+                id="identifier"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 className="block w-full pl-10 pr-24 py-2.5 bg-black/30 border border-gray-700 rounded-lg focus:ring-2 focus:ring-primary-blue/50 focus:border-primary-blue/50 text-white placeholder-gray-500 transition-colors"
-                placeholder="Enter your roll number"
+                placeholder="Enter to verify"
                 required
-                disabled={isLoading || otpSent}
+                disabled={isLoading || isVerifying || otpSent}
               />
               <button
                 type="button"
                 onClick={handleVerify}
-                disabled={isLoading || otpSent}
+                disabled={
+                  isLoading || isVerifying || otpSent || identifier.length === 0
+                }
                 className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1.5 bg-primary-blue/20 hover:bg-primary-blue/30 text-primary-blue rounded-md transition-colors duration-200 disabled:opacity-50"
               >
-                {isLoading ? "Verifying..." : otpSent ? "Verified" : "Verify"}
+                {isVerifying ? "Sending..." : otpSent ? "Sent" : "Verify"}
               </button>
             </div>
           </div>
@@ -127,12 +167,12 @@ export default function RegisterForm() {
           {otpSent && (
             <InputField
               id="otp"
-              label="OTP"
+              label="Verification Code"
               type="text"
               value={otp}
               onChange={(e) => setOtp(e.target.value)}
               icon={<ShieldCheck className="h-5 w-5 text-gray-500" />}
-              placeholder="Enter OTP"
+              placeholder="Enter the code sent to your email"
               disabled={isLoading}
             />
           )}
@@ -160,23 +200,16 @@ export default function RegisterForm() {
           />
         </div>
 
-        {error && (
-          <div className="text-red-400 text-sm text-center bg-red-900/20 py-2 px-3 rounded-lg">
-            {error}
-          </div>
-        )}
-
         <div className="pt-2">
-          <GradientButton 
-            type="submit" 
-            className="w-full py-2.5 justify-center" 
+          <GradientButton
+            type="submit"
+            className="w-full py-2.5 justify-center"
             disabled={isLoading || !otpSent}
           >
             {isLoading ? "Creating Account..." : "Create Account"}
           </GradientButton>
         </div>
       </form>
-
       <div className="mt-6 text-center">
         <Link
           href="/login"

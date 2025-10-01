@@ -4,6 +4,8 @@ import Provider from "@/lib/Providers/Provider";
 import authOptions from "@/lib/NextAuth/authOptions";
 import { getServerSession } from "next-auth";
 import { Martel } from "next/font/google";
+import { Toaster } from "react-hot-toast";
+
 export const metadata: Metadata = {
   title: "Anant : The Mathematical Society of NIT Kurukshetra",
   description:
@@ -71,7 +73,10 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body className={`${martel.variable}`}>
-        <Provider session={session}>{children}</Provider>
+        <Provider session={session}>
+          <Toaster position="top-center" /> {/* <-- 2. ADD THIS COMPONENT */}
+          {children}
+        </Provider>
       </body>
     </html>
   );
