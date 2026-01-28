@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
       6,
       '0'
     );
-
+    console.log('Generated OTP: ', OTP);
     // hashing OTP
     const salt = await bcryptjs.genSalt(10);
     const hashedOTP = await bcryptjs.hash(OTP, salt);

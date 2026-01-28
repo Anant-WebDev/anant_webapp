@@ -12,18 +12,24 @@ export async function GET(req: NextRequest) {
     const userId = session.user.id;
 
     const teams_leaded = await prisma.team.findMany({
-      where: { team_leader_id: userId },
+  where: { team_leader_id: userId },
+  include: {
+    team_leader: {
       select: {
-        team_name: true,
-        team_id: true,
-        team_members: {
-          select: {
-            roll_number: true,
-            name: true,
-          },
-        },
+        id: true,
+        name: true,
+        roll_number: true,
       },
-    });
+    },
+    team_members: {
+      select: {
+        id: true,
+        name: true,
+        roll_number: true,
+      },
+    },
+  },
+});
 
     const teams_member = await prisma.team.findMany({
       where: { team_members: { some: { id: userId } } },

@@ -7,10 +7,16 @@ import GradientButton from '../ui/GradientButton';
 import Modal from '../ui/Modal';
 import StatusModal from '../ui/StatusModal';
 
+interface leader{
+  id : string;
+  name : string;
+  roll_number : string;
+}
+
 interface Team {
   team_id: string;
   team_name: string;
-  team_leader: string;
+  team_leader: leader;
   team_members: string[];
 }
 
@@ -42,6 +48,10 @@ const TeamDashboard = () => {
   const [statusModal, setStatusModal] = useState<StatusMessage | null>(null);
   const [teamToDelete, setTeamToDelete] = useState<string | null>(null);
   const [refresh, set_refresh] = useState<boolean>(false);
+
+  // New state for team details modal
+  const [isTeamDetailsOpen, setIsTeamDetailsOpen] = useState(false);
+
 
   const [formData, setFormData] = useState({
     name: '',
@@ -80,7 +90,7 @@ const TeamDashboard = () => {
           team_members: teams_leaded[i].team_members.map((el: any) =>
             String(el.roll_number)
           ),
-          team_leader: teams_leaded[i].team_leader,
+          team_leader: (teams_leaded[i].team_leader.name),
         });
       }
 
@@ -279,6 +289,11 @@ const TeamDashboard = () => {
     }).format(new Date(date));
   };
 
+  const handleTeamClick = (team: Team) => {
+  setSelectedTeam(team);
+  setIsTeamDetailsOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -305,7 +320,9 @@ const TeamDashboard = () => {
             {teams.map((team) => (
               <div
                 key={team.team_id}
-                className="bg-gray-900/50 p-4 rounded-lg border border-gray-800/30 hover:border-primary-blue/50 transition-all duration-200"
+                onClick={() => handleTeamClick(team)}
+                className="cursor-pointer bg-gray-900/50 p-4 rounded-lg border border-gray-800/30 
+             hover:border-primary-blue/50 transition-all duration-200"
               >
                 <div className="flex justify-between items-start mb-2">
                   <div>
@@ -314,14 +331,19 @@ const TeamDashboard = () => {
                     </h3>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => confirmDeleteTeam(team.team_id)}
+                    {/* <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        confirmDeleteTeam(team.team_id);
+                      }}
                       className="p-2 text-gray-400 hover:text-red-500 transition-colors"
                     >
                       <Trash2 className="h-5 w-5" />
-                    </button>
+                    </button> */}
                     <button
-                      onClick={() => handleAddMemberClick(team)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddMemberClick(team);}}
                       className="text-primary-cyan hover:text-primary-blue text-sm bg-gray-900/50 px-3 py-1 rounded-md transition-colors"
                     >
                       Add Member
@@ -362,7 +384,9 @@ const TeamDashboard = () => {
             {memberTeams.map((team) => (
               <div
                 key={team.team_id}
-                className="bg-gray-900/50 p-4 rounded-lg border border-gray-800/30 hover:border-primary-blue/50 transition-all duration-200"
+                onClick={() => handleTeamClick(team)}
+                className="cursor-pointer bg-gray-900/50 p-4 rounded-lg border border-gray-800/30 
+             hover:border-primary-blue/50 transition-all duration-200"
               >
                 <div className="mb-2">
                   <h3 className="font-medium text-white text-lg">
@@ -539,6 +563,56 @@ const TeamDashboard = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Team Details Modal */}
+      <Modal
+  isOpen={isTeamDetailsOpen}
+  onClose={() => {
+    setIsTeamDetailsOpen(false);
+    setSelectedTeam(null);
+  }}
+  title="Team Details"
+>
+  {selectedTeam && (
+    <div className="space-y-6">
+      {/* Team Name */}
+      <div>
+        <h3 className="text-lg font-semibold text-white">
+          {selectedTeam.team_name}
+        </h3>
+      </div>
+
+      {/* Team Leader */}
+      <div>
+        <p className="text-sm text-gray-400 mb-1">Team Leader</p>
+        <div className="px-4 py-2 rounded-lg bg-gray-900/60 text-white">
+          {selectedTeam.team_leader}
+        </div>
+      </div>
+
+      {/* Team Members */}
+      <div>
+        <p className="text-sm text-gray-400 mb-2">Team Members</p>
+
+        {selectedTeam.team_members.length === 0 ? (
+          <p className="text-gray-500 text-sm">No members yet</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {selectedTeam.team_members.map((member, idx) => (
+              <div
+                key={idx}
+                className="px-4 py-2 rounded-lg bg-gray-900/60 text-white text-sm"
+              >
+                Roll No: {member}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )}
+</Modal>
+
 
       {/* Status Modal */}
       <StatusModal
